@@ -54,3 +54,34 @@ jobs:
       #     python src/evaluate.py >> cml_report.md # Capture evaluation script output
       #
       #     cml comment create cml_report.md
+# ... (previous steps like Checkout, Setup Python, Install dependencies) ...
+
+    - name: Install CML (for reporting) # Add or ensure this is present in Install dependencies step
+      run: |
+        pip install cml
+        pip install dvc # DVC is often a dependency for CML features like plot rendering
+
+    - name: Run training to create model
+      run: python src/train.py
+
+    - name: Run Pytest for Model Evaluation
+      run: |
+        pytest > result.log 2>&1 || true
+      env:
+          PYTHONUNBUFFERED: "1"
+
+    - name: Generate CML Report and Comment on PR
+      if: always() # Ensure this step runs even if previous steps fail
+      env:
+        REPO_TOKEN: ${{ secrets.GH_TOKEN }} # This accesses the secret you just set up
+      run: |
+        echo "## :robot: Model Sanity Test Report" > cml_report.md
+        echo "### Pytest Results:" >> cml_report.md
+        echo "\⁠ \ ⁠\`" >> cml_report.md
+        cat result.log >> cml_report.md # Include the raw pytest output
+        echo "\⁠ \ ⁠\`" >> cml_report.md
+        echo "### Model Evaluation Summary:" >> cml_report.md
+        python src/evaluate.py >> cml_report.md # Capture evaluation script output
+        echo "\⁠ \ ⁠\`" >> cml_report.md # Add closing backticks for evaluation report
+
+        cml comment create cml_report.md
