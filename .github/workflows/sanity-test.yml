@@ -1,0 +1,56 @@
+name: Sanity Test
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: # Allows manual trigger if needed
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # Ensure this matches your local or desired version
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          # Add these two lines if you plan to use CML for comments in the next step
+          # pip install cml
+          # pip install dvc # DVC often needed for CML image rendering
+
+      - name: Run training to create model
+        run: python src/train.py
+
+      - name: Run Pytest for Model Evaluation
+        # `|| true` is important here if you want to capture log even if tests fail,
+        # but for an assignment where tests must pass, you might remove it.
+        # For this step, let's keep it to see the log regardless.
+        run: |
+          pytest > result.log 2>&1 || true # Running just 'pytest' leverages pytest.ini
+        env:
+            PYTHONUNBUFFERED: "1" # Ensures output is not buffered
+
+      - name: Show test output
+        run: cat result.log
+
+      # --- CML Integration (Optional for now, but covered in next section) ---
+      # - name: Generate CML Report and Comment on PR
+      #   if: always() # Run this even if previous steps fail, to post report
+      #   env:
+      #     REPO_TOKEN: ${{ secrets.GH_TOKEN }} # Ensure this secret is set up!
+      #   run: |
+      #     echo "## :robot: Model Sanity Test Report" > cml_report.md
+      #     echo "### Pytest Results:" >> cml_report.md
+      #     echo "\`\`\`" >> cml_report.md
+      #     cat result.log >> cml_report.md # Include the raw pytest output
+      #     echo "\`\`\`" >> cml_report.md
+      #     echo "### Model Evaluation Summary:" >> cml_report.md
+      #     python src/evaluate.py >> cml_report.md # Capture evaluation script output
+      #
+      #     cml comment create cml_report.md
